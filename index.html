@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperMario by Tiaozin</title>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background-image: url(img/Céu\ Azul\ e\ Colinas\ Verdejantes.png);
+        min-height: 100vh;
+        background-size: cover;
+    }
+
+    #personagem {
+        position: absolute;
+        top: 50%;
+        transition: top 0.3s ease;
+    }
+</style>
+
+<body>
+    <main>
+        <img id="personagem" src="img/personagem.webp" alt="">
+    </main>
+</body>
+
+<script>
+    let personagem = document.getElementById("personagem");
+    let posX = 0;
+    document.addEventListener("keydown",async function (event) {
+
+        switch (event.key.toLowerCase()) {
+
+            case "w":
+                personagem.style.top = 40 + "%";
+                await esperar(300);
+                personagem.style.top = 50 + "%";
+                break;
+
+            case "a":
+                posX -= 100;
+                break;
+
+            case "s":
+                alert("Abaixar");
+                break;
+
+            case "d":
+                posX += 100;
+
+                break;
+
+        }
+        personagem.style.left = posX + "px";
+
+        function esperar(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+    });
+</script>
+
+</html>
