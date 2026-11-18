@@ -5,67 +5,227 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuperMario by Tiaozin</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+        }
+
+        main {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Fundo infinito: só o background se move */
+        #fundo {
+            position: absolute;
+            inset: 0;
+            background-image: url("img/Céu Azul e Colinas Verdejantes.png");
+            background-size: auto 100%;
+            background-repeat: repeat-x;
+            z-index: 1;
+        }
+
+        /* Mundo: carrega os obstáculos e acompanha a câmera */
+        #mundo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            will-change: transform;
+        }
+
+        .obstaculo {
+            position: absolute;
+            bottom: 10%;
+            /* mesmo chão do personagem */
+            background-image: url(img/obstaculo.png);
+            /* depois troque por uma imagem de bloco */
+            border: 2px solid #5a3410;
+        }
+
+        #personagem {
+            position: absolute;
+            width: 80px;
+            height: auto;
+            left: 30%;
+            bottom: 10%;
+            z-index: 10;
+        }
+    </style>
 </head>
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        background-image: url(img/Céu\ Azul\ e\ Colinas\ Verdejantes.png);
-        min-height: 100vh;
-        background-size: cover;
-    }
-
-    #personagem {
-        position: absolute;
-        top: 50%;
-        transition: top 0.3s ease;
-    }
-</style>
 
 <body>
+
     <main>
-        <img id="personagem" src="img/personagem.webp" alt="">
+
+        <div id="fundo"></div>
+
+        <div id="mundo">
+            <div class="obstaculo" style="left: 600px; width: 80px; height: 80px;"></div>
+            <div class="obstaculo" style="left: 1000px; width: 80px; height: 140px;"></div>
+            <div class="obstaculo" style="left: 1400px; width: 200px; height: 60px;"></div>
+        </div>
+
+        <img id="personagem" src="img/personagem.webp" alt="Personagem">
+
     </main>
+
+    <script>
+
+        const fundo = document.getElementById("fundo");
+        const mundo = document.getElementById("mundo");
+        const personagem = document.getElementById("personagem");
+        let obstaculos = [...document.querySelectorAll(".obstaculo")];
+
+        const teclas = {};
+
+        // ---------- Física ----------
+        const velocidade = 5;
+        const gravidade = 0.6;
+        const forcaPulo = 14;
+
+        let mundoX = 100;   // posição do personagem no mundo
+        let y = 0;          // altura em px a partir do fundo da tela
+        let velY = 0;
+        let noChao = false;
+
+        const CHAO = () => window.innerHeight * 0.10;
+
+        y = CHAO();
+
+        document.addEventListener("keydown", e => teclas[e.key.toLowerCase()] = true);
+        document.addEventListener("keyup", e => teclas[e.key.toLowerCase()] = false);
+
+        // ---------- Colisão ----------
+        // retângulo do obstáculo em coordenadas do mundo (y para cima)
+        function retObstaculo(o) {
+            return {
+                x: o.offsetLeft,
+                y: mundo.clientHeight - (o.offsetTop + o.offsetHeight),
+                w: o.offsetWidth,
+                h: o.offsetHeight
+            };
+        }
+
+        // devolve o obstáculo em que o personagem encosta (ou null)
+        function colide(x, yy) {
+            const w = personagem.offsetWidth;
+            const h = personagem.offsetHeight;
+
+            for (const o of obstaculos) {
+                const r = retObstaculo(o);
+                if (x < r.x + r.w && x + w > r.x && yy < r.y + r.h && yy + h > r.y) {
+                    return r;
+                }
+            }
+            return null;
+        }
+
+        // ---------- Obstáculos infinitos ----------
+        let proximoObstaculo = 1800;
+
+        function gerarObstaculos() {
+            // cria obstáculos novos à frente do personagem
+            while (proximoObstaculo < mundoX + window.innerWidth * 2) {
+                const o = document.createElement("div");
+                o.className = "obstaculo";
+                o.style.left = `${proximoObstaculo}px`;
+                o.style.width = `${60 + Math.random() * 100}px`;
+                o.style.height = `${60 + Math.random() * 100}px`;
+                mundo.appendChild(o);
+                obstaculos.push(o);
+
+                proximoObstaculo += 400 + Math.random() * 400;
+            }
+
+            // remove os que ficaram muito para trás (evita acumular elementos)
+            obstaculos = obstaculos.filter(o => {
+                if (o.offsetLeft + o.offsetWidth < mundoX - window.innerWidth * 2) {
+                    o.remove();
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        // ---------- Loop do jogo ----------
+        function loop() {
+
+            gerarObstaculos();
+
+            // ----- Horizontal -----
+            let dx = 0;
+            if (teclas["d"]) dx += velocidade;
+            if (teclas["a"]) dx -= velocidade;
+
+            let novoX = mundoX + dx;
+            if (novoX < 0) novoX = 0;   // parede invisível no começo da fase
+
+            // só anda se não bater de lado em um obstáculo
+            if (!colide(novoX, y)) {
+                mundoX = novoX;
+            }
+
+            // ----- Vertical -----
+            if (teclas["w"] && noChao) {
+                velY = forcaPulo;
+            }
+
+            velY -= gravidade;
+            let novoY = y + velY;
+            noChao = false;
+
+            // chão
+            if (novoY <= CHAO()) {
+                novoY = CHAO();
+                velY = 0;
+                noChao = true;
+            }
+
+            // obstáculos
+            const obs = colide(mundoX, novoY);
+            if (obs) {
+                if (velY <= 0) {
+                    // caindo: pousa em cima
+                    novoY = obs.y + obs.h;
+                    noChao = true;
+                } else {
+                    // subindo: bate a cabeça embaixo
+                    novoY = obs.y - personagem.offsetHeight;
+                }
+                velY = 0;
+            }
+
+            y = novoY;
+
+            // ----- Câmera -----
+            const telaX = window.innerWidth * 0.3;   // personagem fixo em 30% da tela
+            const camera = telaX - mundoX;
+
+            fundo.style.backgroundPositionX = `${camera}px`;     // fundo repete infinito
+            mundo.style.transform = `translateX(${camera}px)`;   // obstáculos acompanham
+            personagem.style.left = `${telaX}px`;
+            personagem.style.bottom = `${y}px`;
+
+            requestAnimationFrame(loop);
+        }
+
+        // espera a imagem do personagem carregar (precisa da altura pra colisão)
+        window.addEventListener("load", () => requestAnimationFrame(loop));
+
+    </script>
+
 </body>
-
-<script>
-    let personagem = document.getElementById("personagem");
-    let posX = 0;
-    document.addEventListener("keydown",async function (event) {
-
-        switch (event.key.toLowerCase()) {
-
-            case "w":
-                personagem.style.top = 40 + "%";
-                await esperar(300);
-                personagem.style.top = 50 + "%";
-                break;
-
-            case "a":
-                posX -= 100;
-                break;
-
-            case "s":
-                alert("Abaixar");
-                break;
-
-            case "d":
-                posX += 100;
-
-                break;
-
-        }
-        personagem.style.left = posX + "px";
-
-        function esperar(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-    });
-</script>
 
 </html>
